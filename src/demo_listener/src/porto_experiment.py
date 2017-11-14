@@ -6,21 +6,18 @@ from angle_calc import in_2d
 # from std_msgs.msg import String
 from sensor_msgs.msg import NavSatFix
 from mavros_msgs.srv import SetMode
-from mavros_msgs.msg import State
 
 from mavros_msgs.srv import CommandLong
 from mavros_msgs.srv import CommandInt
 from geometry_msgs.msg import Vector3
 from mavros_msgs.msg import GlobalPositionTarget
 
-from mavros_msgs.srv import WaypointPull
 from mavros_msgs.srv import WaypointClear
 from mavros_msgs.srv import WaypointPush
 from mavros_msgs.srv import WaypointPushRequest
 from mavros_msgs.srv import WaypointSetCurrent
 
 from mavros_msgs.msg import Waypoint
-from mavros_msgs.msg import WaypointList
 
 from collections import namedtuple
 from math import atan2,cos,sin,asin, radians, degrees, sqrt
@@ -75,39 +72,64 @@ def get_distance(lat1, lon1, lat2, lon2):
 
 def set_mode_to_guided():
     #set mode to guided, once
-
     set_mode_service = rospy.ServiceProxy('mavros/set_mode', SetMode)
     set_mode_service(216,'GUIDED')
 
 def set_mode_to_auto():
-    #set mode to auto, once
-
+    #set mode to guided, once
     set_mode_service = rospy.ServiceProxy('mavros/set_mode', SetMode)
     set_mode_service(220,'AUTO')
-
-def get_mavros_mission_wps():
-
-    waypoint_pull_service = rospy.ServiceProxy('mavros/mission/pull', WaypointPull)
-    return waypoint_pull_service()
-
 
 # R is earth radius
 R = 6371 # in km
 # Initializing variables for the mission
 waypoint = namedtuple('waypoint', 'latitude longitude')
+wp_plan = [waypoint(37.5217000,-5.8576000),
+			waypoint(37.5218571,-5.8578873),
+			waypoint(37.5221571,-5.8573873),
+			waypoint(37.5213571,-5.8577873),
+			waypoint(37.5212238,-5.8562540),
+			waypoint(37.5222333,-5.8553000),
+			waypoint(37.5227667,-5.8548500),
+			waypoint(37.5227667,-5.8539500),
+			waypoint(37.5225500,-5.8524667),
+			waypoint(37.5221370,-5.8508095),
+			waypoint(37.5216537,-5.8502428),
+			waypoint(37.5209870,-5.8501762),
+			waypoint(37.5200948,-5.8506527),
+			waypoint(37.5196782,-5.8514360),
+			waypoint(37.5202967,-5.8524724),
+			waypoint(37.5195000,-5.8529500),
+			waypoint(37.5189750,-5.8530250),
+			waypoint(37.5189250,-5.8540750),
+			waypoint(37.5183750,-5.8541750),
+			waypoint(37.5179667,-5.8551333),
+			waypoint(37.5189714,-5.8559710),
+			waypoint(37.5201000,-5.8555667),
+			waypoint(37.5200667,-5.8574333),
+			waypoint(37.5195000,-5.8576333),
+			waypoint(37.5184547,-5.8576877),
+			waypoint(37.5172167,-5.8572500),
+			waypoint(37.5178214,-5.8568877),
+			waypoint(37.5181714,-5.8559044),
+			waypoint(37.5190380,-5.8570710),
+			waypoint(37.5203000,-5.8566667),
+			waypoint(37.5209571,-5.8569540),
+			waypoint(37.5219238,-5.8565873),
+			waypoint(37.5224667,-5.8561333),
+			waypoint(37.5214667,-5.8538000),
+			waypoint(37.5212139,-5.8523875),
+			waypoint(37.5207504,-5.8519152),
+			waypoint(37.5206569,-5.8508039),
+			waypoint(37.5197865,-5.8521444),
+			waypoint(37.5219370,-5.8518761),
+			waypoint(37.5222667,-5.8535000),
+			waypoint(37.5217000,-5.8576000)]
 
-# wp_plan = get_mavros_mission_wps() # that's a WaypointList
-global wp_plan
-wp_plan = [waypoint(41.1427581, -8.7249470),
-            waypoint(41.1393661, -8.717351),
-            waypoint(41.1394005, -8.7103996),
-            waypoint(41.1393661, -8.7032747),
-            waypoint(41.1380394, -8.6996377)]
-
-waypoint_iter = 2
+waypoint_iter = 0
 header_iter = 0
 
-distance = 0.075 #  denoted in km
+distance = 0.04 #  denoted in km
 integrated_area = 0
 integration_started = 0
 vasi_mikri = 0
@@ -116,8 +138,9 @@ pr_closest_point = waypoint(0,0)
 # previous wp is the previous wp of the plan
 previous_wp = wp_plan[waypoint_iter]
 next_wp = wp_plan[waypoint_iter+1]
-tested_angle  = in_2d(wp_plan[2].latitude, wp_plan[2].longitude, wp_plan[3].latitude, wp_plan[3].longitude, wp_plan[4].latitude, wp_plan[4].longitude)
-rospy.loginfo(" Testing angle of : " + str(tested_angle) + " degrees")
+#tested_angle  = in_2d(wp_plan[2].latitude, wp_plan[2].longitude, wp_plan[3].latitude, wp_plan[3].longitude, wp_plan[4].latitude, wp_plan[4].longitude)
+
+#rospy.loginfo(" Testing angle of : " + str(tested_angle) + " degrees")
 
 #pub = rospy.Publisher('mavros/setpoint_raw/global', GlobalPositionTarget, queue_size=1)
 
@@ -207,65 +230,22 @@ def callback(data):
     command_service(the_req)
     current_service(1)
 
+
 def listener():
     rospy.init_node('lat_lon_listener', anonymous=False)
     rospy.Subscriber("mavros/global_position/global", NavSatFix, callback)
     # spin() simply keeps python from exiting until this node is stopped
     rospy.spin()
 
-def update_mission_callback(data):
-
-    global wp_plan
-    mavros_wp_list = data.waypoints
-    wp_plan = []
-    count = 0
-    for each_wp in mavros_wp_list:
-        print "Latitude: " + str(each_wp.x_lat) + ", longitude: " + str(each_wp.y_long)
-        wp_plan.append(waypoint(latitude=each_wp.x_lat, longitude=each_wp.y_long))
-        count = count+1
-    print count
-    count = 0
-    print "Easy list"
-    for norm_wp in wp_plan:
-        print "Latitude: " + str(norm_wp.latitude) + ", longitude: " + str(norm_wp.longitude)
-        count = count + 1
-    print count
-
-def mission_change_listener():
-    rospy.init_node('mission_change_listener', anonymous=False)
-    rospy.Subscriber("mavros/mission/waypoints", WaypointList, update_mission_callback)
-    rospy.spin()
-
-def state_callback(data):
-
-    if data.mode == "AUTO":
-        print("Changed to AUTO")
-
-def state_change_listener():
-    rospy.init_node('state_change_listener', anonymous=False)
-    rospy.Subscriber("mavros/state", State, state_callback)
-    rospy.spin()
-
 if __name__ == '__main__':
     rospy.sleep(5)
     print "Just started"
-    # instead, start listener which wait for auto change
-    #set_mode_to_auto()
-
+    #set_mode_to_guided()
+    set_mode_to_auto()
     # CLEARING THE PREVIOUS MISSION
-    #current_service = rospy.ServiceProxy('mavros/mission/set_current', WaypointSetCurrent)
-    #command_service = rospy.ServiceProxy('mavros/mission/push', WaypointPush)
-    #clearing_service = rospy.ServiceProxy('mavros/mission/clear', WaypointClear)
-    #clearing_service()
-
-    # queries autopilot and returns result and # of waypoints
-    print str(get_mavros_mission_wps())
-
-    #the following will update the 'global' wp list plan. It's time it's changed, it will go from the start
-    #mission_change_listener()
-
-    state_change_listener()
-    #listener()
-
-    # queries autopilot and returns result and # of waypoints
-    #print str(get_mavros_mission_wps())
+    current_service = rospy.ServiceProxy('mavros/mission/set_current', WaypointSetCurrent)
+    command_service = rospy.ServiceProxy('mavros/mission/push', WaypointPush)
+    clearing_service = rospy.ServiceProxy('mavros/mission/clear', WaypointClear)
+    #rospy.loginfo(" Testing angle of : " + str(tested_angle) + " degrees")
+    clearing_service()
+    listener()
